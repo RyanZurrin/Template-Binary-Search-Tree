@@ -1,10 +1,14 @@
+//
+// Created by Ryan.Zurrin001 on 12/17/2021.
+//
+
 #ifndef PHYSICSFORMULA_TEMPLATEBST_H
 #define PHYSICSFORMULA_TEMPLATEBST_H
 #define INT_MAX 2147483647
 #include <iomanip>
 #include <iostream>
 #include <queue>
-
+using namespace std;
 #define COUNT 10
 static int pos = 1;
 
@@ -64,9 +68,23 @@ class TBST
     /// <returns></returns>
     static int countNodes(node<T>* tree);
 
-    static int countLeftNodes(node<T>* tree);
+    static void countLeftSubTreeHelper(node<T>* tree, int* count);
 
-    static int countRightNodes(node<T>* tree);
+    static void countRightSubTreeHelper(node<T>* tree, int* count);
+    /// <summary>
+    /// fills the auxiliary array with the values of the tree
+    /// </summary>
+    /// <param name="tree">The tree.</param>
+    void fillAuxArray(vector<T>& arr, node<T>* tree);
+    /// <summary>
+    /// shuffles the array in random fashion
+    /// </summary>
+    void shuffleArray(vector<T>& arr);
+    /// <summary>
+    /// fill tree with the values of the array
+    /// </summary>
+    void fillTreeFromArray(vector<T>& arr, TBST* tree);
+
     /// <summary>
     /// Retrieves the specified tree.
     /// </summary>
@@ -244,8 +262,25 @@ public:
     /// <param name="val">value of height</param>
     /// <returns></returns>
     int rankOf(node<T>* tree, T val);
+    /// <summary>
+    /// returns the root of the tree
+    /// </summary>
+    node<T>* getRoot();
+    /// <summary>
+    /// returns whether the tree is balanced or not
+    /// </summary>
+    /// <returns></returns>
+    bool isBalanced();
+    /// <summary>
+    /// balances the tree using auxiliary array
+    /// </summary>
+    void balanceTree();
 
-    node<T>* returnRoot();
+    /// <summary>
+    /// returns the size of the tree
+    /// </summary>
+    int getSize() const { return qty; }
+    static vector<int> countLeftRightSubTree(node<T>* tree);
     /// <summary>
     /// outputs the tree
     /// </summary>
@@ -293,6 +328,7 @@ inline bool TBST<T>::pAdd(node<T>* tree, T& k)
         else
             pAdd(tree->right, k);
     }
+    return false;
 }
 
 template<typename T>
@@ -361,22 +397,30 @@ inline int TBST<T>::countNodes(node<T>* tree)
 }
 
 template<typename T>
-inline int TBST<T>::countLeftNodes(node<T>* tree)
+inline void TBST<T>::countLeftSubTreeHelper(node<T>* tree, int* count)
 {
     if (tree == NULL)
-        return 0;
+        return;
     else
-        return countLeftNodes(tree->left) + 1;
+    {
+        countLeftSubTreeHelper(tree->left, count);
+        countLeftSubTreeHelper(tree->right, count);
+        *count = *count + 1;
+    }
+}
+template<typename T>
+inline void TBST<T>::countRightSubTreeHelper(node<T>* tree, int* count)
+{
+    if (tree == NULL)
+        return;
+    else
+    {
+        countRightSubTreeHelper(tree->left, count);
+        countRightSubTreeHelper(tree->right, count);
+        *count = *count + 1;
+    }
 }
 
-template<typename T>
-inline int TBST<T>::countRightNodes(node<T>* tree)
-{
-    if (tree == NULL)
-        return 0;
-    else
-        return countRightNodes(tree->right) + 1;
-}
 
 template<typename T>
 inline bool TBST<T>::retrieve(node<T>* tree, const T k, T& found) const
@@ -413,13 +457,15 @@ inline void TBST<T>::copyTree(node<T>*& copy, const node<T>* originalTree)
 template<typename T>
 inline void TBST<T>::destroy(node<T>*& tree)
 {
+    //cout << "Destroying tree..." << endl;
     if (tree != NULL)
     {
         destroy(tree->left);
         destroy(tree->right);
-        qty--;
         delete tree;
+        tree = NULL;
     }
+    // cout << "Tree destroyed." << endl;
 }
 
 template<typename T>
@@ -554,8 +600,10 @@ inline TBST<T>& TBST<T>::operator=(TBST&& originalTree) noexcept
         originalTree.root = NULL;
         qty = originalTree.qty;
         max = originalTree.max;
+        return *this;
     }
-
+    else
+        return *this;
 }
 
 template<typename T>
@@ -597,14 +645,12 @@ inline bool TBST<T>::isFull() const
 template<typename T>
 inline bool TBST<T>::makeEmpty()
 {
-    if (isEmpty())
-        return false;
-    else
-    {
-        destroy(root);
-        root = NULL;
-        return true;
-    }
+    //cout << "Tree is being destroyed in makeEmpty." << endl;
+    destroy(root);
+    root = NULL;
+    qty = 0;
+    //cout << "Tree destroyed leaving Make empty." << endl;
+    return true;
 }
 
 template<typename T>
@@ -673,7 +719,7 @@ inline int TBST<T>::rankOf(node<T>* tree, T val)
 }
 
 template<typename T>
-inline node<T>* TBST<T>::returnRoot()
+inline node<T>* TBST<T>::getRoot()
 {
     return root;
 }
@@ -697,7 +743,6 @@ TBST<T>::TBST(TBST&& other) noexcept {
     qty = other.qty;
     max = other.max;
     other.root = NULL;
-    return *this;
 }
 
 template<typename T>
@@ -710,6 +755,91 @@ TBST<T>& TBST<T>::operator=(const TBST& other) {
         copyTree(root, other.root);
     }
     return *this;
+}
+
+template<typename T>
+bool TBST<T>::isBalanced() {
+    if (root == NULL)
+        return true;
+    vector<int> lr = countLeftRightSubTree(root);
+    if (abs(lr[0] - lr[1]) > 2)
+        return false;
+    else
+        return true;
+}
+
+template<typename T>
+std::vector<int> TBST<T>::countLeftRightSubTree(node<T>* tree) {
+    vector<int> count{ 0,0 };
+    if (tree == NULL)
+        return count;
+    else {
+        node<T>* temp = tree->left;
+        countLeftSubTreeHelper(temp, &count[0]);
+        temp = tree->right;
+        countRightSubTreeHelper(temp, &count[1]);
+    }
+    return count;
+}
+
+template<typename T>
+void TBST<T>::fillAuxArray(std::vector<T>& arr, node<T>* tree) {
+    //cout << "Filling array with values from tree" << endl;
+    if (tree == NULL)
+        return;
+    fillAuxArray(arr, tree->left);
+    arr.push_back(tree->item);
+    //cout << "item pushed is " << tree->item << endl;
+    fillAuxArray(arr, tree->right);
+    //cout << "Array filled" << endl;
+}
+
+template<typename T>
+void TBST<T>::shuffleArray(std::vector<T>& arr) {
+    int n = arr.size();
+    cout << "Shuffling array size is " << n << endl;
+    bool added[n];
+    srandom(time(nullptr));
+    for (int i = 0; i < n;) {
+        int r = random() % n;
+        if (!added[r]) {
+            added[r] = true;
+            arr[i] = arr[r];
+            i++;
+        }
+    }
+}
+
+template<typename T>
+void TBST<T>::fillTreeFromArray(std::vector<T>& arr, TBST* tree) {
+    int n = arr.size() - 1;
+    int mid = n / 2;
+    addItem(arr[mid]);
+    cout << "Shuffling array size is " << n << endl;
+    bool added[n];
+    srandom(time(nullptr));
+    for (int i = 1; i < n;) {
+        int r = random() % n;
+        if (!added[r] && r != mid) {
+            added[r] = true;
+            addItem(arr[r]);
+            i++;
+        }
+    }
+}
+
+template<typename T>
+void TBST<T>::balanceTree() {
+    //cout << "Balancing tree..." << endl;
+    if (root == NULL || isBalanced())
+        return;
+    vector<T> arr;
+    fillAuxArray(arr, root);
+    makeEmpty();
+    //root = NULL;
+    //root = new node<T>;
+    fillTreeFromArray(arr, this);
+    //cout << "Tree balanced ending!" << endl;
 }
 
 #endif //PHYSICSFORMULA_TEMPLATEBST_H
